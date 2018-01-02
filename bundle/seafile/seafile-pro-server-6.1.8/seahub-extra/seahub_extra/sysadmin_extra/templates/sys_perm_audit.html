@@ -1,0 +1,135 @@
+{% extends "sysadmin/base.html" %}
+{% load seahub_tags i18n %}
+{% block cur_log %}tab-cur{% endblock %}
+
+{% block extra_style %}
+<link rel="stylesheet" type="text/css" href="{{MEDIA_URL}}css/jquery-ui.datepicker.min.css" />
+{% endblock %}
+
+{% block right_panel %}
+<div class="tabnav ovhd">
+    <ul class="tabnav-tabs fleft">
+        <li class="tabnav-tab"><a href="{% url 'sys_login_admin' %}">{% trans "Login" %}</a></li>
+        <li class="tabnav-tab"><a href="{% url 'sys_log_file_audit' %}">{% trans "File Access" %}</a></li>
+        <li class="tabnav-tab"><a href="{% url 'sys_log_file_update' %}">{% trans "File Update" %}</a></li>
+        <li class="tabnav-tab tabnav-tab-cur"><a href="{% url 'sys_log_perm_audit' %}">{% trans "Permission" %}</a></li>
+        <li class="tabnav-tab"><a href="{% url 'sys_log_email_audit' %}">{% trans "Mail Sending" %}</a></li>
+    </ul>
+    {% if events %}
+    <button id="export-excel" class="fright">{% trans "Export Excel" %}</button>
+    {% endif %}
+</div>
+
+{% if events %}
+<table>
+  <tr>
+    <th width="18%">{% trans "From" %}</th>
+    <th width="15%">{% trans "To" %}</th>
+    <th width="10%">{% trans "Action" %}</th>
+    <th width="13%">{% trans "Permission" %}</th>
+    <th width="15%">{% trans "Library" %}</th>
+    <th width="15%">{% trans "Folder" %}</th>
+    <th width="15%">{% trans "Date" %}</th>
+  </tr>
+
+  <div id="audit-unselect-op">
+      {% if user_selected %}
+          <div id="audit-unselect-user" title="unselect {{ user_selected }}"><a href="#">{{user_selected}}</a><span>&#10006</span></div>
+      {% endif %}
+      {% if repo_selected %}
+          <div id="audit-unselect-repo" title="unselect {{ events.0.repo.name }}"><a href="#">{{events.0.repo.name}}</a><span>&#10006</span></div>
+      {% endif %}
+  </div>
+
+  {% for e in events %}
+  <tr class="audit-item">
+    <td>
+        {% if e.from_user %}
+            <a href="{% url 'user_info' e.from_user %}">{{ e.from_user}} </a>
+            {% if not user_selected %}
+                <span class="more-op-icon sf2-icon-caret-down op-icon vh"></span>
+                <ul class="audit-select-hidden hide">
+                <li><a class="audit-select-user" href="#" data-email="{{ e.from_user }}">{% trans "Only Show"%} <strong>{{ e.from_user }}</strong></a></li>
+                </ul>
+            {% endif %}
+        {% else %}
+            <span>{% trans "Anonymous User" %}</span>
+        {% endif %}
+    </td>
+
+    <td>
+    {% if '@' in e.to %}
+        <a href="{% url 'user_info' e.to %}">{{ e.to }}</a>
+    {% elif 'all' in e.to %}
+        <a href="{{ SITE_ROOT }}#org/">Organization</a>
+    {% elif e.perm_group_name %}
+        <a href="{{ SITE_ROOT }}sysadmin/#groups/{{ e.to }}/libs/">{{ e.perm_group_name }}</a>
+    {% else %}
+        {% trans "Deleted" %}
+    {% endif %}
+    </td>
+
+    <td>
+    {% if 'add' in e.etype %}
+        <span>{% trans "Add" %}</span>
+    {% elif 'modify' in e.etype %}
+        <span>{% trans "Modify" %}</span>
+    {% elif 'delete' in e.etype %}
+        <span>{% trans "Delete" %}</span>
+    {% endif %}
+    </td>
+
+    <td>
+    {% if e.permission == 'rw' %}
+      <span class="perm-cur-value">{% trans "Read-Write" %}</span>
+    {% elif e.permission == 'r' %}
+      <span class="perm-cur-value">{% trans "Read-Only" %}</span>
+    {% else %}
+      --
+    {% endif %}
+    </td>
+    <td>
+    {% if e.repo.name %}
+    <span>{{ e.repo.name }}</span>
+        {% if not repo_selected %}
+            <span class="more-op-icon sf2-icon-caret-down op-icon vh"></span>
+            <ul class="audit-select-hidden hide">
+            <li><a class="audit-select-repo" href="#" data-repo_id="{{ e.repo_id }}">{% trans "Only Show"%} <strong>{{ e.repo.name }}</strong></a></li>
+            </ul>
+        {% endif %}
+    {% else %}
+        {% trans "Deleted" %}
+    {% endif %}
+    </td>
+
+    <td>
+    {% if e.folder_name %}
+    <span class="cspt" title="{{ e.file_path }}">{{ e.folder_name }}</span>
+    {% else %}
+    <span>/</span>
+    {% endif %}
+    </td>
+
+    <td>{{ e.time|date:"Y-m-d G:i:s" }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% url 'sys_log_perm_audit_export_excel' as export_excel_url %}
+{% include "export_excel_popup.html" %}
+{% include "sysadmin_log_paginator.html" %}
+{% else %}
+<div class="empty-tips">
+    <h2 class="alc">{% trans "No Library Permission Infomation" %}</h2>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_script %}
+{% if events %}
+{% include "export_excel_js.html" %}
+<script type="text/javascript">
+{% include "sysadmin_log_js.html" %}
+</script>
+{% endif %}
+{% endblock %}

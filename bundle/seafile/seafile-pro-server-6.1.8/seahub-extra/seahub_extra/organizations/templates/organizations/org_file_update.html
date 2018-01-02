@@ -1,0 +1,137 @@
+{% extends "organizations/org_admin_sidebar.html" %}
+{% load seahub_tags i18n %}
+{% block cur_log %}tab-cur{% endblock %}
+
+{% block right_panel %}
+<div class="tabnav ovhd">
+    <ul class="tabnav-tabs fleft">
+        <li class="tabnav-tab"><a href="{% url 'org_log_file_audit' %}">{% trans "File Access" %}</a></li>
+        <li class="tabnav-tab tabnav-tab-cur"><a href="{% url 'org_log_file_update' %}">{% trans "File Update" %}</a></li>
+        <li class="tabnav-tab"><a href="{% url 'org_log_perm_audit' %}">{% trans "Permission" %}</a></li>
+    </ul>
+</div>
+
+{% if events %}
+<table>
+  <tr>
+    <th width="25%">{% trans "User" %}</th>
+    <th width="15%">{% trans "Date" %}</th>
+    <th width="25%">{% trans "Library" %}</th>
+    <th width="35%">{% trans "Action" %}</th>
+  </tr>
+
+  <div id="audit-unselect-op">
+      {% if user_selected %}
+          <div id="audit-unselect-user" title="unselect {{ user_selected }}"><a href="#">{{user_selected}}</a><span>&#10006</span></div>
+      {% endif %}
+      {% if repo_selected %}
+          <div id="audit-unselect-repo" title="unselect {{ events.0.repo.name }}"><a href="#">{{events.0.repo.name}}</a><span>&#10006</span></div>
+      {% endif %}
+  </div>
+
+  {% for e in events %}
+  <tr class="audit-item">
+    <td>
+        {% if e.user %}
+            {% if e.is_org_user %}
+                <a href="{% url 'org_user_info' e.user %}">{{ e.user }} </a>
+                {% if not user_selected %}
+                    <span class="more-op-icon sf2-icon-caret-down op-icon vh"></span>
+                    <ul class="audit-select-hidden hide">
+                    <li><a class="audit-select-user" href="#" data-email="{{ e.user }}">{% trans "Only Show"%} <strong>{{ e.user }}</strong></a></li>
+                    </ul>
+                {% endif %}
+            {% else %}
+                <span>{{ e.user }}</span>
+            {% endif %}
+        {% else %}
+            <span>{% trans "Anonymous User" %}</span>
+        {% endif %}
+    </td>
+    <td>{{ e.local_time|date:"Y-m-d G:i:s" }}</td>
+    <td>
+        {% if e.repo.name %}
+        <span>{{ e.repo.name }} </span>
+            {% if not repo_selected %}
+                <span class="more-op-icon sf2-icon-caret-down op-icon vh"></span>
+                <ul class="audit-select-hidden hide">
+                <li><a class="audit-select-repo" href="#" data-repo_id="{{ e.repo_id }}">{% trans "Only Show"%} <strong>{{ e.repo.name }}</strong></a></li>
+                </ul>
+            {% endif %}
+        {% else %}
+        <strong>Deleted</strong>
+        {% endif %}
+    </td>
+    <td>
+        <span>{{ e.file_oper }}</span>
+        {% if not e.repo.encrypted %}
+        <a class="lsch" href="#" data-url="{% url 'repo_history_changes' e.repo_id %}?commit_id={{ e.commit_id }}" data-time="{{ e.time|tsstr_sec }}">{% trans "Details"%}</a>
+        {% endif %}
+    </td>
+
+  </tr>
+  {% endfor %}
+</table>
+{% include "sysadmin_log_paginator.html" %}
+{% else %}
+<div class="empty-tips">
+    <h2 class="alc">{% trans "No File Update Infomation" %}</h2>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_script %}
+<script type="text/javascript">
+{% include "sysadmin_log_js.html" %}
+
+function listCommitDetails(url, t) {
+    $.modal('<div id="ls-ch"><img src="{{MEDIA_URL}}img/loading-icon.gif" alt="" style="margin-top:30px;" /></div>', {autoResize:true});
+    $('#ls-ch').css('text-align', 'center');
+    $('#simplemodal-container').css({'width':'auto', 'height':'auto'});
+    $.ajax({
+        url: url,
+        dataType: 'json',
+        cache: false,
+        success: function(data) {
+            var heading = '<h3>' + "{% trans "Modification Details" %}" + '</h3>';
+            var time = '<p class="commit-time">' + t + '</p>';
+            var con = '';
+            function show(data_, hd) {
+                if (data_.length > 0) {
+                    con += '<h4>' + hd + '</h4>';
+                    con += '<ul>';
+                    for (var i = 0, len = data_.length; i < len; i++) {
+                        con += '<li>' + data_[i] + '</li>';
+                    }
+                    con += '</ul>';
+                }
+            }
+            show(data['new'], "{% trans "New files" %}");
+            show(data['removed'], "{% trans "Deleted files" %}");
+            show(data['renamed'], "{% trans "Renamed or Moved files" %}");
+            show(data['modified'], "{% trans "Modified files" %}");
+            show(data['newdir'], "{% trans "New directories" %}");
+            show(data['deldir'], "{% trans "Deleted directories" %}");
+            if (!con) {
+                if (data['cmt_desc']) {
+                    con = '<p>' + HTMLescape(data['cmt_desc']) + '</p>';
+                }
+            }
+            $('#ls-ch').css('text-align','left').html(heading + time + con);
+            $(window).resize();
+        },
+        error: function() {
+            $('#ls-ch').html("{% trans "Unknown error." %}");
+            setTimeout(function() { $.modal.close(); }, 2500);
+        }
+    });
+}
+$('.lsch').click(function() {
+    listCommitDetails($(this).data('url'), $(this).data('time'));
+    return false;
+});
+
+</script>
+{% endblock %}
+
